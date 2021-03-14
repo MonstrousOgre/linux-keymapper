@@ -1,1 +1,2 @@
+mod keymap;
 mod profile;
