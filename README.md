@@ -1,4 +1,4 @@
-# lkb-map
+# linux-keymapper
 
 A tool that lets you remap a keyboard/keypad on Linux, written in Rust
 
