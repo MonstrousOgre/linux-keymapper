@@ -1,6 +1,8 @@
+use crate::input::Device;
 use crate::input::Key;
+use std::collections::HashMap;
 
 pub struct Keymap {
-    pub source_key: Key,
-    pub target_key: Key,
+    device: Device,
+    map: HashMap<Key, Key>,
 }
