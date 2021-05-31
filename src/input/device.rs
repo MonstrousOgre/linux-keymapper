@@ -1,6 +1,6 @@
 use evdev_rs::UInputDevice;
-use std::fs::File;
 use std::path::Path;
+use std::{error::Error, fs::File};
 
 pub struct Device {
     evdev_device: evdev_rs::Device,
@@ -14,32 +14,32 @@ impl Device {
         unimplemented!();
     }
 
-    fn new_from_devnode(devnode: &Path) -> Device {
-        let f = File::open(devnode).unwrap();
-        let d = evdev_rs::Device::new_from_fd(f).unwrap();
-        Device {
+    fn new_from_devnode(devnode: &Path) -> Result<Device, Box<dyn Error>> {
+        let f = File::open(devnode)?;
+        let d = evdev_rs::Device::new_from_fd(f)?;
+        Ok(Device {
             evdev_device: d,
             grabbed: false,
             uinput_device: None,
-        }
+        })
     }
 
-    pub fn get_all_devices() -> Vec<Device> {
-        let context = libudev::Context::new().unwrap();
-        let mut enumerator = libudev::Enumerator::new(&context).unwrap();
+    pub fn get_all_devices() -> Result<Vec<Device>, Box<dyn Error>> {
+        let context = libudev::Context::new()?;
+        let mut enumerator = libudev::Enumerator::new(&context)?;
         enumerator.match_property("ID_INPUT_KEYBOARD", "1").ok();
 
-        //enumerator.match_subsystem("tty").unwrap();
+        //enumerator.match_subsystem("tty")?;
 
         let mut devices = Vec::new();
 
-        for ud in enumerator.scan_devices().unwrap() {
+        for ud in enumerator.scan_devices()? {
             if let Some(devnode) = ud.devnode() {
-                devices.push(Self::new_from_devnode(devnode));
+                devices.push(Self::new_from_devnode(devnode)?);
             }
         }
 
-        devices
+        Ok(devices)
     }
 }
 
@@ -82,17 +82,21 @@ mod tests {
     use super::*;
     #[test]
     fn get_all_devices() {
-        let devices = Device::get_all_devices();
-        assert_ne!(devices.len(), 0)
+        let result = Device::get_all_devices();
+        if let Ok(devices) = result {
+            assert_ne!(devices.len(), 0)
+        }
     }
 
     #[test]
     fn grab() {
-        let mut device = Device::new_from_devnode(Path::new("/dev/input/event26"));
+        let result = Device::new_from_devnode(Path::new("/dev/input/event26"));
 
-        device.grab();
+        if let Ok(mut device) = result {
+            device.grab();
 
-        assert!(device.is_grabbed());
-        assert!(device.uinput_device.is_some());
+            assert!(device.is_grabbed());
+            assert!(device.uinput_device.is_some());
+        }
     }
 }
