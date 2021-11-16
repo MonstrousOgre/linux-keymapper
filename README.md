@@ -6,8 +6,8 @@ Since this uses [evdev](https://www.freedesktop.wiki/Software/libevdev/) (which 
 
 ---
 
-**NOTE**
+**Disclaimer**
 
-This blocks input events to other applications from the physical device you choose to remap, and redirects it through a virtual device. Any applications that rely on hardware-specific input from the original device may not function as expected.
+The reason there hasn't been a commit for months is that I don't have the time to work on this. I decided against archiving this repo for now, but I can't give an estimate on when it'll be completed. Meanwhile, there's a [better alternative](https://github.com/sezanzeb/key-mapper).
 
 ---
