@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::ffi::OsStr;
+
 use evdev_rs::UInputDevice;
 use std::path::Path;
 use std::{error::Error, fs::File};
@@ -10,13 +13,9 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new() {
-        unimplemented!();
-    }
-
     fn new_from_devnode(devnode: &Path) -> Result<Device, Box<dyn Error>> {
         let f = File::open(devnode)?;
-        let d = evdev_rs::Device::new_from_fd(f)?;
+        let d = evdev_rs::Device::new_from_file(f)?;
         Ok(Device {
             evdev_device: d,
             grabbed: false,
@@ -24,22 +23,54 @@ impl Device {
         })
     }
 
-    pub fn get_all_devices() -> Result<Vec<Device>, Box<dyn Error>> {
-        let context = libudev::Context::new()?;
-        let mut enumerator = libudev::Enumerator::new(&context)?;
+    pub fn get_all_devices(
+        context: &libudev::Context,
+    ) -> Result<HashMap<String, Device>, Box<dyn Error>> {
+        let mut enumerator = libudev::Enumerator::new(context)?;
         enumerator.match_property("ID_INPUT_KEYBOARD", "1").ok();
 
-        //enumerator.match_subsystem("tty")?;
-
-        let mut devices = Vec::new();
+        let mut devices = HashMap::new();
 
         for ud in enumerator.scan_devices()? {
             if let Some(devnode) = ud.devnode() {
-                devices.push(Self::new_from_devnode(devnode)?);
+                devices.insert(
+                    String::from(devnode.to_str().unwrap()),
+                    Device::new_from_devnode(devnode)?,
+                );
             }
         }
 
         Ok(devices)
+    }
+
+    pub fn listen_for_devices(
+        context: &libudev::Context,
+        devices: &mut HashMap<String, Device>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut monitor = libudev::Monitor::new(context)?;
+        monitor.match_subsystem("input")?;
+        let mut socket = monitor.listen()?;
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if let Some(event) = socket.receive_event() {
+                let keyboard_prop = event
+                    .device()
+                    .property_value("ID_INPUT_KEYBOARD")
+                    .unwrap_or(OsStr::new("0"));
+
+                if keyboard_prop == "1" {
+                    if let Some(devnode) = event.device().devnode() {
+                        match event.event_type().to_string().as_str() {
+                            "add" => {
+                                Box::new(devices.remove(&String::from(devnode.to_str().unwrap())))
+                            }
+                            _ => Box::new(None),
+                        };
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -82,7 +113,9 @@ mod tests {
     use super::*;
     #[test]
     fn get_all_devices() {
-        let result = Device::get_all_devices();
+        let context = libudev::Context::new().unwrap();
+
+        let result = Device::get_all_devices(&context);
         if let Ok(devices) = result {
             assert_ne!(devices.len(), 0)
         }
@@ -90,7 +123,7 @@ mod tests {
 
     #[test]
     fn grab() {
-        let result = Device::new_from_devnode(Path::new("/dev/input/event26"));
+        let result = Device::new_from_devnode(Path::new("/dev/input/event7"));
 
         if let Ok(mut device) = result {
             device.grab();
