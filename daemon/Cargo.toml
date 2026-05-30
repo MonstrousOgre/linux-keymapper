@@ -1,0 +1,9 @@
+[package]
+name = "daemon"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+evdev-rs = "0.5.0"
+libudev = "0.3"
+directories = "3.0.1"
